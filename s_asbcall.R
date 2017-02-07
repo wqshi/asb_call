@@ -1,6 +1,12 @@
 ########My Beta-Binomial distribution approach to call ASB events#####
 ###By adding the mapping bias, this is the new stuff.
 ##But the data_replicates in missing, need to fix
+
+
+
+
+
+t_test_mapping_bias_and_overdispersion <- function(){
   source('s_asb_meta_data.R')
   library(dplyr)
   library(VGAM)
@@ -103,12 +109,7 @@
   sum(joint_density[joint_selection])/sum(joint_density)
   sum(joint_density[joint_pvalue < cur_pvalue])/sum(joint_density)
   binom.test(ref_dp + ref_dp2, loc_total + loc_total2, alternative = 'greater')
-  
-  
-  hist(log10(fn))
-  
-  
-  
+
   heatmap.2(log10(joint_density),scale = 'none',trace = 'none',Rowv = FALSE, Colv = FALSE)
   
   
@@ -120,10 +121,7 @@
   pvalue2 = binom.test(10, 30)
   pvalue$p.value^2
 
-
-  ###The likelyhood ratio test:
-
-
+}
 
 
 f_cmp_likelihood_and_binomial <- function(ref_dp, ref_dp2, loc_total, loc_total2, input_prob = 0.5){
@@ -161,38 +159,29 @@ f_likelihood_call_ASB <- function(ref_dp, ref_dp2, loc_total, loc_total2, null_p
 }
 
 
-f_likelihood_call_ASB(c(1,3), c(2,4), c(3,3), c(4,4), 0.5)
+
+t_test_results <- function(){
+  
+  
+  f_likelihood_call_ASB(c(1,3), c(2,4), c(3,3), c(4,4), 0.5)
+  
+  
+  f_cmp_likelihood_and_binomial(4,5,8,10)
+  f_cmp_likelihood_and_binomial(1,11,3,12)
+  
+  #The test would be the same if the sum of the ref counts are the same.
+  #Ref1, ref2, total1, total2
+  f_cmp_likelihood_and_binomial(2,10,3,12)
+  
+  #Is this one fair?
+  f_cmp_likelihood_and_binomial(0,12,3,12)
+  f_cmp_likelihood_and_binomial(3,9,3,12)
+  
+  
+  
+}
 
 
-f_cmp_likelihood_and_binomial(4,5,8,10)
-f_cmp_likelihood_and_binomial(1,11,3,12)
-
-#The test would be the same if the sum of the ref counts are the same.
-#Ref1, ref2, total1, total2
-f_cmp_likelihood_and_binomial(2,10,3,12)
-
-#Is this one fair?
-f_cmp_likelihood_and_binomial(0,12,3,12)
-f_cmp_likelihood_and_binomial(3,9,3,12)
-
-
-
-
-loc_total = 9
-ref_dp = 8
-loc_total2 = 8 
-ref_dp2 = 8
-
-library(ACSWR)
-expected_prop = (ref_dp + ref_dp2)/ (loc_total + loc_total2)
-MPbinomial(Hp = 0.5, Kp = expected_prop, alpha = 0.05, n = (loc_total + loc_total2 ))
-binom.test(x = ref_dp + ref_dp2 , n = loc_total + loc_total2 )
-
-
-##
-
-#install.packages('lmtest')
-library(lmtest)
 
 
 

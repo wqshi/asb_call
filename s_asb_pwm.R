@@ -1,13 +1,12 @@
 #' Merge all the PWM data in the predicted TFBS.
 #' Makde the classical plot.
-source('s_function.R')
-source('s_asb_manuscript_comotif_func.R')
-load(file = './data/tmp/cell_data_list')
+source('../s_function.R', chdir = T)
+source('../s_asb_manuscript_comotif_func.R', chdir = T)
+load(file = '../data/tmp/cell_data_list')
 merge_pwm_data = data.frame()
 
-pwm_information_content = read.table('./data/server/snv/pwm_information_content.list',header = T)
+pwm_information_content = read.table('../data/server/snv/pwm_information_content.list',header = T)
 rownames(pwm_information_content) = tolower(pwm_information_content$tf)
-
 
 #str(cell_data_list)
 

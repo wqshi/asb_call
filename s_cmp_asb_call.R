@@ -26,7 +26,7 @@ f_method_metrics <- function(method, binomial_pwm_data){
   #dnase_loc = cor(binomial_pwm_data$dnase_ratio > 0.5, binomial_pwm_data[[f_p('ASB_%s', method)]] == 'ASB')
   
   
-  binomial_pwm_data = subset(binomial_pwm_data, total_dp < 20)
+  binomial_pwm_data = subset(binomial_pwm_data, total_dp <= 20, ref_dnase_dp + alt_dnase_dp >=5)
   
   test_obj= cor.test(binomial_pwm_data$dnase_ratio, -log(binomial_pwm_data[[f_p('pvalue_%s', method)]]), method = 'spearman',
                                                       use = 'pairwise.complete.obs')
@@ -299,9 +299,8 @@ for (cell_loc in cell_list){
       all_data$ASB_betaPool = f_fdr_ASB(betabinomial_pvalue$pvalue, all_data$tf_ratio)
       all_data$ASB_betaRep = f_fdr_ASB(replicate_pvalue, all_data$tf_ratio)
       #all_data$ASB_betaRepD35 = f_fdr_ASB(replicateD35_pvalue, all_data$tf_ratio)
-      
       ASB_cols=grep('ASB_', colnames(all_data), value = T)
-      ASB_collection = rbind(ASB_collection, all_data[,ASB_cols])
+      ASB_collection = rbind(ASB_collection, all_data[,c(ASB_cols,'total_dp')])
       
       table(all_data$ASB_betaPool)
       table(all_data$ASB_betaRep)
@@ -333,12 +332,17 @@ for (cell_loc in cell_list){
 
 source('./s_library.R')
 
+ggplot(subset(ASB_collection, total_dp < 200 ), aes(total_dp)) + geom_histogram(bins = 40,colour = "black", fill = 'white') + 
+  xlim(c(10,200)) + ylim(c(0,6000)) + xlab('Total read coverage') + theme_Publication(12) + theme_axis
+  
+dim(ASB_collection)
 
+ggsave(f_p('%s/figureS3.tiff', fig_directory), width = 7, height = 4)
 
-
+sum(ASB_collection$total_dp < 20)/nrow(ASB_collection)
 
 ########P-value correlation###################
-#Figure 1A: Heatmap
+####Figure 1C: Heatmap#####
 approach_official_names = c('Binom+Pool', 'Binom+Rep', 'edgeR', 'Beta+Pool', 'Beta+Rep')
 colnames(cor_matrix) = c('Binom+Pool', 'Binom+Rep', 'edgeR', 'Beta+Pool', 'Beta+Rep')
 rownames(cor_matrix) = c('Binom+Pool', 'Binom+Rep', 'edgeR', 'Beta+Pool', 'Beta+Rep')
@@ -366,7 +370,7 @@ average_cor_with_edgeR=(sum(cor_matrix_percentage[3,]) - 1)/4
 #raster::merge(venn_fig, cor_heatmap, filename = f_p("%s/fig1.tiff", fig_directory) )
 
 
-#Figure 1B: Venn Diagram
+#####Figure 1B: Venn Diagram########
 
 #install.packages('venneuler')
 library(venneuler)
@@ -379,7 +383,7 @@ plot.VennDiagram2 <- function(x, col, col.fn = function(col) hcl(col * 360, 130,
   yr <- range(c(xtp[,2], xtm[,2]))
   # create canvas
   plot.new()
-  plot.window(xr-0.1, yr, "", asp = 1)
+  plot.window(xr+0.10, yr, "", asp = 1)
   # adjust alpha for all colors if specified
   n <- length(x$diameters)
   if (missing(col)) col <- col.fn(x$colors)
@@ -404,12 +408,13 @@ plot.VennDiagram2 <- function(x, col, col.fn = function(col) hcl(col * 360, 130,
 }
 
 
-edgeR_ratio = sum(rowSums(ASB_collection == 'ASB') == 5) / sum(ASB_collection$ASB_edgeR == 'ASB')
-
+betaPool_ratio = sum(rowSums(ASB_collection == 'ASB') == 5) / sum(ASB_collection$ASB_betaPool == 'ASB')
 likelihood_ratio = sum(ASB_collection$ASB_likelihood == 'ASB') / sum(rowSums(ASB_collection == 'ASB') > 0)
 
 
 cat('Total heterozygous sites:', nrow(ASB_collection), '\n')
+cat(betaPool_ratio, 'of the most conservative method is called by five \n', likelihood_ratio, 'of all are called by most permissive')
+
 
 vennObj = venneuler(ASB_collection[,c('ASB_betaPool','ASB_binom','ASB_edgeR','ASB_betaRep','ASB_likelihood')] == 'ASB')
 vennObj$labels = rep('',5)
@@ -424,21 +429,28 @@ vennObj$centers[,'x'] = vennObj$centers[,'x'] + 0.1
 tiff(file = f_p("%s/venn.tiff", fig_directory),res = 310, width = 8, height = 7, units='in')
 plot.VennDiagram2(vennObj)
 par(mai = rep(0,4))
-mov = 0.10
+mov = 0.05
 font_size = 1.5
-text(x = 0.5548763 + mov, y = 0.5240646,  labels = f_p('edgeR\n(%s)', ASB_total['ASB_edgeR']), cex = font_size )
+first_y = 0.68
+left_x = 0.85
 
-text(x = 0.15 + mov , y = 0.30,  labels = f_p('Binom+Rep\n(%s)', ASB_total['ASB_likelihood'] ), cex = font_size)
-lines(c(0.23,0.33)+ mov, y = c(0.30,0.30))
+text(x = 0.91 + mov , y = first_y,  labels = f_p('Binom+Rep\n(%s)', ASB_total['ASB_likelihood'] ), cex = font_size)
+lines(c(0.75,left_x)+ mov, y = c(first_y,first_y))
 
-text(x = 0.16 + mov , y = 0.68,  labels = f_p('Binom+Pool\n(%s)', ASB_total['ASB_binom'] ), cex = font_size)
-lines(c(0.23,0.33) + mov, y = c(0.68,0.68))
 
-text(x = 0.15 + mov, y = 0.55,  labels = f_p('Beta+Pool\n(%s)', ASB_total['ASB_betaPool'] ), cex = font_size)
-lines(c(0.23,0.28) + mov, y = c(0.55,0.55))
+text(x = 0.91 + mov , y = first_y - 0.08,  labels = f_p('Binom+Pool\n(%s)', ASB_total['ASB_binom'] ), cex = font_size)
+lines(c(0.76,left_x) + mov, y = c(first_y - 0.08, first_y - 0.08))
 
-text(x = 0.15 + mov, y = 0.42,  labels = f_p('Beta+Rep\n(%s)', ASB_total['ASB_betaRep'] ), cex = font_size)
-lines(c(0.23,0.33)+ mov, y = c(0.42,0.42))
+text(x = 0.91 + mov, y = first_y - 0.16,  labels = f_p('Beta+Rep\n(%s)', ASB_total['ASB_betaRep'] ), cex = font_size)
+lines(c(0.71,left_x) + mov, y = c(first_y - 0.16,first_y - 0.16))
+
+text(x = 0.91 + mov, y = first_y - 0.24,  labels = f_p('edgeR\n(%s)', ASB_total['ASB_edgeR'] ), cex = font_size)
+lines(c(0.64,left_x) + mov, y = c(first_y - 0.24,first_y - 0.24))
+
+
+text(x = 0.91 + mov, y = first_y - 0.32,  labels = f_p('Beta+Pool\n(%s)', ASB_total['ASB_betaPool'] ), cex = font_size)
+lines(c(0.54,left_x) + mov, y = c(first_y - 0.32,first_y - 0.32))
+
 dev.off()
 
 
@@ -451,17 +463,21 @@ f_read_tiff_as_raster <- function(img_file){
   rasterGrob(img)
 }
 
+
+##########Figure1 ################
 cor_heatmap <- f_read_tiff_as_raster(f_p("%s/correlation.tiff", fig_directory))
 venn_fig <- f_read_tiff_as_raster(f_p("%s/venn.tiff", fig_directory))
+distri_fig <- f_read_tiff_as_raster(f_p("%s/overdispersion.tiff", fig_directory))
 
 
 str(venn_fig)
 str(cor_heatmap)
 
-tiff(f_p('%s/figure1.tiff', fig_directory), width = 14, height = 7, units = 'in',res = 310)
-grid.arrange(arrangeGrob(venn_fig, cor_heatmap, ncol =2))
+tiff(f_p('%s/figure1.tiff', fig_directory), width = 14, height = 12, units = 'in',res = 310)
+grid.arrange(arrangeGrob(distri_fig, arrangeGrob(venn_fig, cor_heatmap, ncol =2), nrow =2, heights = 6:7 ))
 grid.text(label = '(A)',x=unit(0.05, "npc"), y=unit(0.95, "npc"), gp=gpar(fontsize=16))
-grid.text(label = '(B)',x=unit(0.46, "npc"), y=unit(0.95, "npc"), gp=gpar(fontsize=16))
+grid.text(label = '(B)',x=unit(0.05, "npc"), y=unit(0.52, "npc"), gp=gpar(fontsize=16))
+grid.text(label = '(C)',x=unit(0.46, "npc"), y=unit(0.52, "npc"), gp=gpar(fontsize=16))
 dev.off()
 
 
@@ -514,24 +530,30 @@ library(tidyr)
 
 all_data$dnase_total = all_data$ref_dnase_dp + all_data$alt_dnase_dp
 
-subset_data <-all_data %>% filter(ref_tf_dp + alt_tf_dp < 20, ref_dnase_dp + alt_dnase_dp > 10)
-dnase_dot_data<- subset_data %>% select(dnase_ratio, pvalue_binom, pvalue_edgeR) %>% gather(class, value, -dnase_ratio)
+
+
+subset_data <-all_data %>% filter(ref_tf_dp + alt_tf_dp < 20, ref_dnase_dp + alt_dnase_dp > 5)
+dnase_dot_data<- subset_data %>% dplyr::select(dnase_ratio, pvalue_binom, pvalue_edgeR) %>% gather(class, value, -dnase_ratio)
 
 coefs = c(cor.test(subset_data$dnase_ratio, y = -log(subset_data$pvalue_edgeR))$estimate,
           cor.test(subset_data$dnase_ratio, y = -log(subset_data$pvalue_binom))$estimate
 )
 levels(dnase_dot_data$class) = approach_official_names[c(1,3)]
 dot_annotation_data = data.frame( class = approach_official_names[c(3,1)],
-                              coef = paste0('R: ',f_p('%.2f', coefs )))
+                              coef = paste0('Corr: ',f_p('%.2f', coefs )))
 
 
 
 
 cor_plot<-ggplot(dnase_dot_data, aes(dnase_ratio, -log10(value))) + geom_point(color = '#386cb0', size = 1)+ geom_smooth(color = 'black', lwd = 0.3) +
-  facet_wrap(~class) + theme_Publication(12) + geom_text(data = dot_annotation_data, aes(0.20, 13, label = coef ), size = 4) +
+  facet_wrap(~class) + theme_Publication(12) + geom_text(data = dot_annotation_data, aes(0.35, 4.5, label = coef ), size = 4) +
   xlab('DHS allelic imbalance on the favored allele') + ylab('-log(p-value)') + theme_axis
 cor_plot
 
+
+cor_plot<-ggplot(subset(dnase_dot_data, class != 'edgeR'), aes(dnase_ratio, -log10(value))) + geom_point(color = '#386cb0', size = 1)+ geom_smooth(color = 'black', lwd = 0.3) +
+  theme_Publication(12) + geom_text(data = dot_annotation_data[2,], aes(0.35, 4.5, label = coef ), size = 4) +
+  xlab('DHS allelic imbalance on the favored allele') + ylab('-log10(p-value) of Binom+Pool') + theme_axis
 
 
 
@@ -541,13 +563,43 @@ cor_plot
 
 colnames(stats_collect)
 stats_collect_complete=stats_collect[complete.cases(stats_collect),]
-dnase_cor <- stats_collect_complete %>% select(tf, cell, matches('dnase_.*')) %>% gather(class, value,dnase_binom:dnase_betaRep)
+dnase_cor <- stats_collect_complete %>% dplyr::select(tf, cell, matches('dnase_.*')) %>% gather(class, value,dnase_binom:dnase_betaRep)
 
 
 dnase_cor$binom = rep(stats_collect_complete$dnase_binom, times = 5)
 
+table(dnase_cor$class)
+
+dnase_cor$value = as.numeric(dnase_cor$value)
+
+wilcox.test( subset(dnase_cor, class == 'dnase_edgeR')$value, subset(dnase_cor, class == 'dnase_likelihood', )$value, paired =T  )
+
+wilcox.test( subset(dnase_cor, class == 'dnase_edgeR')$value, alternative = 'less',
+             subset(dnase_cor, class == 'dnase_betaPool', )$value, 
+             paired =T)
+
+wilcox.test( subset(dnase_cor, class == 'dnase_edgeR')$value, alternative = 'less',
+             subset(dnase_cor, class == 'dnase_betaRep', )$value, 
+             paired =T)
+
+
+wilcox.test( subset(dnase_cor, class == 'dnase_likelihood')$value, alternative = 'greater',
+             subset(dnase_cor, class == 'dnase_betaRep', )$value, 
+             paired =T)
+
+wilcox.test( subset(dnase_cor, class == 'dnase_likelihood')$value, alternative = 'greater',
+             subset(dnase_cor, class == 'dnase_betaPool', )$value, 
+             paired =T)
+
+
+wilcox.test( subset(dnase_cor, class == 'dnase_edgeR')$value, subset(dnase_cor, class == 'dnase_betaRep', )$value, paired =T  )
+
+
+
+
 ggplot(dnase_cor, aes(class, as.numeric(value))) + geom_boxplot()
 
+mean_correlation<-dnase_cor %>% group_by(class) %>% summarise(mean = mean(as.numeric(value)))
 
 other_methods = names(pvalue_list[2:5])
 annotation_data = data.frame( class2 = approach_official_names[c(3,2,4,5)],
@@ -562,19 +614,18 @@ levels(dnase_cor$class2) = approach_official_names[c(1,3,2,4,5)]
 #####Second plot#######
 pair_cmp_plot<-ggplot(subset(dnase_cor, class != 'dnase_binom'), aes(as.numeric(binom), as.numeric(value))) + 
 geom_point(color = '#386cb0') + geom_abline() + facet_wrap(~class2) + theme_bw(base_size = 16) + 
-  geom_text(data = annotation_data, aes(0.30, 0.55, label = pvalues ), size = 4) + xlab('DHS correlation of Binom+Pool') +
-  ylab('DHS correlation of other approach') + theme_Publication(12) + theme_axis
+  geom_text(data = annotation_data, aes(0.30, 0.55, label = pvalues ), size = 4) + xlab('Allelic DHS correlation of Binom+Pool') +
+  ylab('Allelic DHS correlation of the indicated approach') + theme_Publication(12) + theme_axis
 
 
 
 
 
 tiff(f_p('%s/figure2.tiff', fig_directory), width = 7, height = 10, units = 'in',res = 310)
-grid.arrange(arrangeGrob(cor_plot,pair_cmp_plot,nrow = 2, heights = c(1,2)))
+grid.arrange(arrangeGrob(cor_plot,pair_cmp_plot,nrow = 2, heights = c(1.5,2)))
 grid.text(label = '(A)',x=unit(0.02, "npc"), y=unit(0.98, "npc"), gp=gpar(fontsize=12))
-grid.text(label = '(B)',x=unit(0.02, "npc"), y=unit(0.66, "npc"), gp=gpar(fontsize=12))
+grid.text(label = '(B)',x=unit(0.02, "npc"), y=unit(0.58, "npc"), gp=gpar(fontsize=12))
 dev.off()
-
 
 ggplot(subset(dnase_cor, class != 'dnase_binom'), aes(as.numeric(binom), as.numeric(value))) + theme_Publication()
 
